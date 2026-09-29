@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>DualSync - Smart Hybrid Real-Time Sync (Wi-Fi LAN + Cloud)</title>
+  <title>DualSync - Smart Real-Time Sync & File Sharing</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
   
-  <!-- QR Code & Scanner Libraries -->
+  <!-- QR Code & Scanner & MQTT Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
@@ -49,7 +49,7 @@
 
     .app {
       width: 100%;
-      max-width: 780px;
+      max-width: 800px;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -68,7 +68,7 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 1.3rem;
+      font-size: 1.35rem;
       font-weight: 800;
       cursor: pointer;
     }
@@ -165,7 +165,7 @@
     .lobby-desc {
       color: var(--text-muted);
       font-size: 0.92rem;
-      max-width: 520px;
+      max-width: 540px;
       margin: 0 auto;
     }
     .lobby-grid {
@@ -285,16 +285,18 @@
       border-radius: var(--radius-sm);
       border: 1px solid var(--card-border);
       gap: 6px;
+      flex-wrap: wrap;
     }
     .mode-tab-btn {
       flex: 1;
-      padding: 9px 16px;
+      min-width: 120px;
+      padding: 9px 14px;
       border-radius: 8px;
       border: none;
       background: transparent;
       color: var(--text-muted);
       font-weight: 700;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -330,7 +332,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      min-height: 260px;
+      min-height: 240px;
       background: #060910;
       border: 1px solid var(--card-border);
       border-radius: 12px;
@@ -402,6 +404,72 @@
       color: #fff;
       font-size: 0.95rem;
       outline: none;
+    }
+
+    /* FILE & MEDIA SHARING STYLES */
+    .file-drop-zone {
+      border: 2px dashed rgba(56, 189, 248, 0.35);
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      background: rgba(56, 189, 248, 0.03);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .file-drop-zone:hover {
+      border-color: var(--primary);
+      background: rgba(56, 189, 248, 0.08);
+    }
+    .file-list-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .file-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: #060910;
+      border: 1px solid var(--card-border);
+      padding: 12px 16px;
+      border-radius: 10px;
+    }
+    .file-card-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .file-icon {
+      font-size: 1.6rem;
+    }
+    .file-name {
+      font-weight: 700;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+    }
+    .file-size-badge {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+    .file-progress-bar {
+      width: 100%;
+      height: 4px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+    }
+    .file-progress-fill {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.1s;
     }
 
     /* Modals */
@@ -482,19 +550,19 @@
     <div class="hybrid-status-bar">
       <span class="network-tag">
         <span id="networkModeIcon">📶</span>
-        <span id="networkModeText">Smart Hybrid Mode Active (Auto Wi-Fi LAN / Internet Cloud)</span>
+        <span id="networkModeText">Smart Hybrid Mode Active (Wi-Fi LAN / Internet Cloud)</span>
       </span>
       <span style="font-size: 0.75rem; color: var(--text-muted);">
-        🔒 0-Setup End-to-End Synced
+        ⚡ Real-Time Instant Sync
       </span>
     </div>
 
     <!-- 1. LOBBY SCREEN -->
     <div id="lobbyScreen" class="card lobby-screen">
       <div style="font-size: 3rem; margin-bottom: 2px;">⚡</div>
-      <h2 class="lobby-title">Instant Multi-Device Real-Time Sync</h2>
+      <h2 class="lobby-title">Instant Multi-Device Sync & File Transfer</h2>
       <p class="lobby-desc">
-        Sync notes, live typing, and Google Keep style checklists across devices. Connects over <strong>Local Wi-Fi</strong> when on the same network, or <strong>Internet Cloud (4G/5G)</strong> automatically!
+        Sync live typing, Google Keep checklists, and transfer photos, videos & files. Connects over <strong>Local Wi-Fi (Unlimited Size)</strong> or <strong>Internet Cloud (up to 50MB)</strong> automatically!
       </p>
 
       <div class="lobby-grid">
@@ -575,6 +643,9 @@
         <button type="button" id="tabBtnChecklist" class="mode-tab-btn" onclick="DualSync.switchMode('checklist')">
           ☑️ Google Keep Checklist
         </button>
+        <button type="button" id="tabBtnFiles" class="mode-tab-btn" onclick="DualSync.switchMode('files')">
+          📁 Media & Files
+        </button>
       </div>
 
       <!-- Mode 1: Live Text Notes Pad -->
@@ -586,7 +657,7 @@
             <button class="btn btn-danger" onclick="DualSync.clearText()" style="padding: 4px 10px; font-size: 0.8rem;">🧹 Clear</button>
           </div>
         </div>
-        <textarea id="syncTextPad" placeholder="Type anything here... It syncs to all connected devices in sub-second real-time!"></textarea>
+        <textarea id="syncTextPad" placeholder="Type anything here... It syncs to all connected devices in real-time as you type!"></textarea>
         <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-top: 8px;">
           <span id="charCount">0 characters</span>
           <span id="syncStatus">🟢 Connected & synced</span>
@@ -617,6 +688,31 @@
         </div>
       </div>
 
+      <!-- Mode 3: Media & Files Transfer -->
+      <div id="panelFiles" class="card" style="display: none; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);">📁 Media & File Transfer</span>
+          <span id="fileLimitBadge" class="brand-badge" style="background: rgba(52, 211, 153, 0.15); color: #34d399; border-color: rgba(52, 211, 153, 0.3);">
+            📶 Wi-Fi: Unlimited | 🌐 Cloud: 50MB
+          </span>
+        </div>
+
+        <!-- Upload Drop Zone -->
+        <div class="file-drop-zone" onclick="document.getElementById('fileUploadInput').click()">
+          <input type="file" id="fileUploadInput" multiple style="display: none;" onchange="DualSync.handleFileSelect(event)" />
+          <div style="font-size: 2.2rem; margin-bottom: 6px;">📤</div>
+          <div style="font-weight: 700; font-size: 1rem; color: #fff;">Click or Drag & Drop Photos, Videos & Files here</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+            Fast direct transfer to all connected devices in this room
+          </div>
+        </div>
+
+        <!-- Shared Files List -->
+        <div class="file-list-container" id="sharedFilesList">
+          <!-- Dynamically populated file cards -->
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -638,15 +734,6 @@
 
       <div style="font-size: 0.78rem; color: var(--text-muted); word-break: break-all; margin-bottom: 12px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px;">
         <a id="modalJoinUrlText" href="#" target="_blank" style="color: #38bdf8; text-decoration: none; font-family: 'JetBrains Mono', monospace;">-</a>
-      </div>
-
-      <div id="fileHostNotice" style="display: none; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 12px; text-align: left; font-size: 0.78rem;">
-        <span style="color: #fbbf24; font-weight: 700;">💡 PC Local Mode:</span>
-        <span style="color: var(--text-muted);"> Enter your public Cloudflare / Web URL so any phone camera can scan & connect:</span>
-        <div style="display: flex; gap: 6px; margin-top: 6px;">
-          <input type="text" id="inputCustomHostUrl" placeholder="https://meter-tracker.k4kanzariya.workers.dev" style="font-size: 0.78rem; padding: 6px 10px;" />
-          <button type="button" class="btn" style="padding: 6px 12px; font-size: 0.75rem;" onclick="DualSync.setCustomHostUrl(document.getElementById('inputCustomHostUrl').value)">Save</button>
-        </div>
       </div>
 
       <div style="display: flex; gap: 8px;">
@@ -677,13 +764,13 @@
   <!-- Toast Notification -->
   <div class="toast" id="toast">Copied!</div>
 
-  <!-- Smart Hybrid Controller (Local Wi-Fi P2P + Internet Cloud) -->
+  <!-- Smart Hybrid Real-Time Synchronization & File Engine -->
   <script>
     const DualSync = {
       currentRoom: null,
       currentMode: 'notes',
       
-      // Endpoints & Brokers
+      // Endpoints & Brokers (Dual Cloud Broker redundancy)
       GOOGLE_URL: 'https://script.google.com/macros/s/AKfycbyfel4gbejwbcZsIoeUvq1KhE0CXAWtdbHjB8ohEttRWA_yXLP6bm9VtM5OQMeXgl6F/exec',
       MQTT_BROKER: 'broker.emqx.io',
       MQTT_PORT: 8084,
@@ -696,16 +783,19 @@
       dataChannel: null,
       isLocalP2pActive: false,
       
+      // Shared Data Model
       data: {
         text: '',
         tasks: [],
+        files: [],
         version: 0,
         lastUpdatedBy: ''
       },
 
-      clientId: 'dev_' + Math.floor(Math.random() * 1000000),
+      clientId: 'ds_' + Math.floor(Math.random() * 10000000),
       html5QrScanner: null,
       pollInterval: null,
+      typeDebounceTimer: null,
 
       init() {
         try {
@@ -747,26 +837,21 @@
             try { this.mqttClient.disconnect(); } catch (e) {}
           }
 
-          const client = new Paho.MQTT.Client(this.MQTT_BROKER, Number(this.MQTT_PORT), "ds_" + this.clientId);
+          const client = new Paho.MQTT.Client(this.MQTT_BROKER, Number(this.MQTT_PORT), "dualsync_" + this.clientId);
           
           client.onConnectionLost = () => {
             this.mqttConnected = false;
             if (!this.isLocalP2pActive) {
               this.updateStatus(false, 'Reconnecting Cloud...');
             }
-            setTimeout(() => this.connectMqtt(), 3000);
+            setTimeout(() => this.connectMqtt(), 2500);
           };
 
           client.onMessageArrived = (message) => {
             try {
-              const payload = JSON.parse(message.payloadString);
-              if (payload && payload.sender !== this.clientId) {
-                // Check if message is WebRTC signaling or data payload
-                if (payload.type === 'webrtc-signal') {
-                  this.handleWebRtcSignal(payload.signal, payload.sender);
-                } else if (payload.data) {
-                  this.receiveRemoteUpdate(payload);
-                }
+              const msg = JSON.parse(message.payloadString);
+              if (msg && msg.sender !== this.clientId) {
+                this.handleIncomingMessage(msg);
               }
             } catch (e) {}
           };
@@ -784,6 +869,8 @@
               }
               if (this.currentRoom) {
                 this.subscribeRoom(this.currentRoom);
+                // Announce presence so existing devices send their latest state
+                this.broadcastMessage({ type: 'DEVICE_JOINED', room: this.currentRoom });
                 this.initiateWebRtcHandshake();
               }
             },
@@ -807,6 +894,89 @@
         } catch (e) {}
       },
 
+      broadcastMessage(payload) {
+        payload.sender = this.clientId;
+        payload.room = this.currentRoom;
+        const jsonStr = JSON.stringify(payload);
+
+        // 1. Try sending over Local Wi-Fi Direct DataChannel (Instant 0ms LAN)
+        if (this.isLocalP2pActive && this.dataChannel && this.dataChannel.readyState === 'open') {
+          try { this.dataChannel.send(jsonStr); } catch (e) {}
+        }
+
+        // 2. Also send over Internet Cloud Broker (4G/5G / Universal)
+        if (this.mqttClient && this.mqttConnected && this.currentRoom) {
+          try {
+            const message = new Paho.MQTT.Message(jsonStr);
+            message.destinationName = 'dualsync/rooms/' + this.currentRoom;
+            message.qos = 1;
+            this.mqttClient.send(message);
+          } catch (e) {}
+        }
+      },
+
+      handleIncomingMessage(msg) {
+        if (!msg) return;
+
+        // 1. New device joined: If we have existing data, send our full state to them!
+        if (msg.type === 'DEVICE_JOINED') {
+          if (this.data.text || (this.data.tasks && this.data.tasks.length > 0) || (this.data.files && this.data.files.length > 0)) {
+            this.broadcastMessage({
+              type: 'SYNC_FULL_STATE',
+              data: this.data
+            });
+          }
+          this.initiateWebRtcHandshake();
+          return;
+        }
+
+        // 2. Received Full State on joining
+        if (msg.type === 'SYNC_FULL_STATE' && msg.data) {
+          this.applyRemoteState(msg.data);
+          return;
+        }
+
+        // 3. Real-Time Live Data Update (Typing / Checkbox / Task)
+        if (msg.type === 'LIVE_DATA_UPDATE' && msg.data) {
+          this.applyRemoteState(msg.data);
+          return;
+        }
+
+        // 4. File / Media Shared
+        if (msg.type === 'FILE_SHARED' && msg.file) {
+          this.receiveFile(msg.file);
+          return;
+        }
+
+        // 5. WebRTC Local Wi-Fi Signaling
+        if (msg.type === 'webrtc-signal') {
+          this.handleWebRtcSignal(msg.signal, msg.sender);
+        }
+      },
+
+      applyRemoteState(remote) {
+        if (!remote) return;
+
+        this.data.text = typeof remote.text === 'string' ? remote.text : '';
+        this.data.tasks = Array.isArray(remote.tasks) ? remote.tasks : [];
+        this.data.files = Array.isArray(remote.files) ? remote.files : [];
+        this.data.version = remote.version || (this.data.version + 1);
+
+        // Update Text Area
+        const pad = document.getElementById('syncTextPad');
+        if (pad && pad.value !== this.data.text) {
+          const start = pad.selectionStart;
+          const end = pad.selectionEnd;
+          pad.value = this.data.text;
+          this.updateCharCount();
+          try { pad.setSelectionRange(start, end); } catch (e) {}
+        }
+
+        // Update Checklist & Files
+        this.renderChecklist();
+        this.renderFiles();
+      },
+
       // WebRTC Local Network P2P Handshake (Direct Wi-Fi / LAN)
       initiateWebRtcHandshake() {
         if (!window.RTCPeerConnection || !this.currentRoom) return;
@@ -819,14 +989,14 @@
 
           this.peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
-              this.sendSignal({ candidate: event.candidate });
+              this.broadcastMessage({ type: 'webrtc-signal', signal: { candidate: event.candidate } });
             }
           };
 
           this.peerConnection.createOffer().then((offer) => {
             return this.peerConnection.setLocalDescription(offer);
           }).then(() => {
-            this.sendSignal({ sdp: this.peerConnection.localDescription });
+            this.broadcastMessage({ type: 'webrtc-signal', signal: { sdp: this.peerConnection.localDescription } });
           }).catch(() => {});
         } catch (e) {}
       },
@@ -845,7 +1015,7 @@
 
             this.peerConnection.onicecandidate = (event) => {
               if (event.candidate) {
-                this.sendSignal({ candidate: event.candidate });
+                this.broadcastMessage({ type: 'webrtc-signal', signal: { candidate: event.candidate } });
               }
             };
           }
@@ -856,7 +1026,7 @@
                 return this.peerConnection.createAnswer().then((answer) => {
                   return this.peerConnection.setLocalDescription(answer);
                 }).then(() => {
-                  this.sendSignal({ sdp: this.peerConnection.localDescription });
+                  this.broadcastMessage({ type: 'webrtc-signal', signal: { sdp: this.peerConnection.localDescription } });
                 });
               }
             }).catch(() => {});
@@ -866,27 +1036,16 @@
         } catch (e) {}
       },
 
-      sendSignal(signal) {
-        if (this.mqttClient && this.mqttConnected && this.currentRoom) {
-          try {
-            const msg = new Paho.MQTT.Message(JSON.stringify({
-              room: this.currentRoom,
-              sender: this.clientId,
-              type: 'webrtc-signal',
-              signal: signal
-            }));
-            msg.destinationName = 'dualsync/rooms/' + this.currentRoom;
-            this.mqttClient.send(msg);
-          } catch(e) {}
-        }
-      },
-
       setupDataChannel(dc) {
         if (!dc) return;
         dc.onopen = () => {
           this.isLocalP2pActive = true;
           this.updateStatus(true, '📶 Local Wi-Fi (Direct LAN)', '0ms', true);
           this.showToast('📶 Connected directly via Local Wi-Fi!');
+          // Immediately sync full state over direct Wi-Fi
+          if (this.data.text || (this.data.tasks && this.data.tasks.length > 0)) {
+            dc.send(JSON.stringify({ type: 'SYNC_FULL_STATE', data: this.data, sender: this.clientId }));
+          }
         };
         dc.onclose = () => {
           this.isLocalP2pActive = false;
@@ -894,9 +1053,9 @@
         };
         dc.onmessage = (event) => {
           try {
-            const payload = JSON.parse(event.data);
-            if (payload && payload.sender !== this.clientId) {
-              this.receiveRemoteUpdate(payload);
+            const msg = JSON.parse(event.data);
+            if (msg && msg.sender !== this.clientId) {
+              this.handleIncomingMessage(msg);
             }
           } catch (e) {}
         };
@@ -908,6 +1067,7 @@
         const png = document.getElementById('pingLabel');
         const modeText = document.getElementById('networkModeText');
         const modeIcon = document.getElementById('networkModeIcon');
+        const limitBadge = document.getElementById('fileLimitBadge');
 
         if (dot) {
           dot.className = online ? (isWifi ? 'dot wifi' : 'dot online') : 'dot';
@@ -915,10 +1075,13 @@
         if (lbl) lbl.textContent = label;
         if (png) png.textContent = ping;
         if (modeText) {
-          modeText.textContent = isWifi ? 'Connected via Direct Local Wi-Fi (0ms Ping)' : 'Connected via Internet Cloud (Anywhere in World)';
+          modeText.textContent = isWifi ? 'Connected via Direct Local Wi-Fi (0ms Ping)' : 'Connected via Internet Cloud (Universal)';
         }
         if (modeIcon) {
           modeIcon.textContent = isWifi ? '📶' : '🌐';
+        }
+        if (limitBadge) {
+          limitBadge.textContent = isWifi ? '📶 Wi-Fi: Unlimited Size' : '🌐 Cloud: 50MB Limit';
         }
       },
 
@@ -973,6 +1136,7 @@
           if (modalPin) modalPin.textContent = pin;
 
           this.subscribeRoom(pin);
+          this.broadcastMessage({ type: 'DEVICE_JOINED', room: pin });
           this.initiateWebRtcHandshake();
           this.pullData();
 
@@ -981,9 +1145,10 @@
             if (!this.isLocalP2pActive && (!this.mqttClient || !this.mqttConnected)) {
               this.pullData();
             }
-          }, 1500);
+          }, 2000);
 
           this.renderChecklist();
+          this.renderFiles();
         } catch (err) {
           console.error('joinRoom error:', err);
         }
@@ -999,30 +1164,12 @@
         this.data.version++;
         this.data.lastUpdatedBy = this.clientId;
 
-        const payloadStr = JSON.stringify({
-          room: this.currentRoom,
-          sender: this.clientId,
+        this.broadcastMessage({
+          type: 'LIVE_DATA_UPDATE',
           data: this.data
         });
 
-        // 1. Try sending over Local Wi-Fi Direct DataChannel (Instant 0ms LAN)
-        if (this.isLocalP2pActive && this.dataChannel && this.dataChannel.readyState === 'open') {
-          try {
-            this.dataChannel.send(payloadStr);
-          } catch (e) {}
-        }
-
-        // 2. Also send over Internet Cloud Broker (4G/5G / Everywhere)
-        if (this.mqttClient && this.mqttConnected && this.currentRoom) {
-          try {
-            const message = new Paho.MQTT.Message(payloadStr);
-            message.destinationName = 'dualsync/rooms/' + this.currentRoom;
-            message.qos = 1;
-            this.mqttClient.send(message);
-          } catch (e) {}
-        }
-
-        // 3. Backup to Google Cloud
+        // Backup to Google Cloud in background
         if (this.currentRoom) {
           const roomKey = 'DUALSYNC_ROOM_' + this.currentRoom;
           const url = this.GOOGLE_URL + '?action=set&room=' + roomKey + '&text=' + encodeURIComponent(JSON.stringify(this.data)) + '&ver=' + this.data.version;
@@ -1040,55 +1187,32 @@
           if (json && json.text) {
             const remoteData = JSON.parse(json.text);
             if (remoteData && remoteData.version > this.data.version && remoteData.lastUpdatedBy !== this.clientId) {
-              this.receiveRemoteUpdate({ data: remoteData });
+              this.applyRemoteState(remoteData);
             }
           }
         } catch (e) {}
-      },
-
-      receiveRemoteUpdate(payload) {
-        if (!payload || !payload.data) return;
-        const remote = payload.data;
-        if (remote.version <= this.data.version) return;
-
-        this.data = {
-          text: typeof remote.text === 'string' ? remote.text : '',
-          tasks: Array.isArray(remote.tasks) ? remote.tasks : [],
-          version: remote.version || 1,
-          lastUpdatedBy: remote.lastUpdatedBy || ''
-        };
-
-        const pad = document.getElementById('syncTextPad');
-        if (pad && pad.value !== this.data.text) {
-          const start = pad.selectionStart;
-          const end = pad.selectionEnd;
-          pad.value = this.data.text;
-          this.updateCharCount();
-          try { pad.setSelectionRange(start, end); } catch (e) {}
-        }
-
-        this.renderChecklist();
       },
 
       switchMode(mode) {
         this.currentMode = mode;
         const btnNotes = document.getElementById('tabBtnNotes');
         const btnCheck = document.getElementById('tabBtnChecklist');
+        const btnFiles = document.getElementById('tabBtnFiles');
+
         const pnlNotes = document.getElementById('panelNotes');
         const pnlCheck = document.getElementById('panelChecklist');
+        const pnlFiles = document.getElementById('panelFiles');
 
-        if (mode === 'checklist') {
-          if (btnCheck) btnCheck.classList.add('active');
-          if (btnNotes) btnNotes.classList.remove('active');
-          if (pnlCheck) pnlCheck.style.display = 'block';
-          if (pnlNotes) pnlNotes.style.display = 'none';
-          this.renderChecklist();
-        } else {
-          if (btnNotes) btnNotes.classList.add('active');
-          if (btnCheck) btnCheck.classList.remove('active');
-          if (pnlNotes) pnlNotes.style.display = 'block';
-          if (pnlCheck) pnlCheck.style.display = 'none';
-        }
+        if (btnNotes) btnNotes.classList.toggle('active', mode === 'notes');
+        if (btnCheck) btnCheck.classList.toggle('active', mode === 'checklist');
+        if (btnFiles) btnFiles.classList.toggle('active', mode === 'files');
+
+        if (pnlNotes) pnlNotes.style.display = (mode === 'notes') ? 'block' : 'none';
+        if (pnlCheck) pnlCheck.style.display = (mode === 'checklist') ? 'block' : 'none';
+        if (pnlFiles) pnlFiles.style.display = (mode === 'files') ? 'block' : 'none';
+
+        if (mode === 'checklist') this.renderChecklist();
+        if (mode === 'files') this.renderFiles();
       },
 
       handleTextInput() {
@@ -1096,6 +1220,8 @@
         if (!pad) return;
         this.data.text = pad.value;
         this.updateCharCount();
+        
+        // Instant broadcast for live typing
         this.pushUpdate();
       },
 
@@ -1215,21 +1341,117 @@
         }
       },
 
+      // FILE & MEDIA TRANSFER ENGINE
+      handleFileSelect(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        for (let i = 0; i < files.length; i++) {
+          this.processAndSendFile(files[i]);
+        }
+        event.target.value = '';
+      },
+
+      processAndSendFile(file) {
+        const maxInternetBytes = 50 * 1024 * 1024; // 50 MB
+        if (!this.isLocalP2pActive && file.size > maxInternetBytes) {
+          return alert(`File "${file.name}" is ${this.formatBytes(file.size)}. Over Internet Cloud, maximum size is 50MB. (For unlimited size, connect both devices to the same Wi-Fi).`);
+        }
+
+        const reader = new FileReader();
+        this.showToast(`📤 Sending ${file.name}...`);
+
+        reader.onload = (e) => {
+          const fileData = {
+            id: 'file_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            dataUrl: e.target.result,
+            sentBy: this.clientId,
+            timestamp: Date.now()
+          };
+
+          if (!Array.isArray(this.data.files)) this.data.files = [];
+          this.data.files.unshift(fileData);
+          this.renderFiles();
+
+          // Broadcast file payload
+          this.broadcastMessage({
+            type: 'FILE_SHARED',
+            file: fileData
+          });
+
+          this.showToast(`✅ ${file.name} sent successfully!`);
+        };
+
+        reader.readAsDataURL(file);
+      },
+
+      receiveFile(fileData) {
+        if (!fileData) return;
+        if (!Array.isArray(this.data.files)) this.data.files = [];
+        
+        // Prevent duplicate file entries
+        if (!this.data.files.some(f => f.id === fileData.id)) {
+          this.data.files.unshift(fileData);
+          this.renderFiles();
+          this.showToast(`📥 Received file: ${fileData.name}`);
+        }
+      },
+
+      renderFiles() {
+        const list = document.getElementById('sharedFilesList');
+        if (!list) return;
+
+        const files = Array.isArray(this.data.files) ? this.data.files : [];
+        if (files.length === 0) {
+          list.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.85rem;">No files shared yet in this room.</div>';
+          return;
+        }
+
+        list.innerHTML = '';
+        files.forEach((f) => {
+          const card = document.createElement('div');
+          card.className = 'file-card';
+          
+          let icon = '📄';
+          if (f.type.startsWith('image/')) icon = '🖼️';
+          else if (f.type.startsWith('video/')) icon = '🎬';
+          else if (f.type.startsWith('audio/')) icon = '🎵';
+          else if (f.type.includes('pdf')) icon = '📕';
+
+          card.innerHTML = `
+            <div class="file-card-info">
+              <span class="file-icon">${icon}</span>
+              <div>
+                <div class="file-name" title="${f.name}">${f.name}</div>
+                <span class="file-size-badge">${this.formatBytes(f.size)}</span>
+              </div>
+            </div>
+            <div>
+              <a href="${f.dataUrl}" download="${f.name}" class="btn btn-success" style="padding: 6px 12px; font-size: 0.8rem;">
+                ⬇️ Download
+              </a>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+      },
+
+      formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+      },
+
       getPublicBaseUrl() {
         if (window.location.protocol.startsWith('http')) {
           return window.location.href.split('#')[0].split('?')[0];
         }
-        const savedUrl = localStorage.getItem('dualsync_custom_host_url');
-        if (savedUrl) return savedUrl.trim();
-        return 'https://empty-cake-6c32.k4kanzariya.workers.dev';
-      },
-
-      setCustomHostUrl(url) {
-        if (url) {
-          localStorage.setItem('dualsync_custom_host_url', url.trim());
-          this.openQrModal();
-          this.showToast('✅ Host URL updated!');
-        }
+        return 'https://k4kanzariya80.github.io/dualsync/';
       },
 
       openQrModal() {
@@ -1264,10 +1486,6 @@
           urlEl.href = joinUrl;
         }
 
-        const isLocalFile = window.location.protocol === 'file:';
-        const fileNotice = document.getElementById('fileHostNotice');
-        if (fileNotice) fileNotice.style.display = isLocalFile ? 'block' : 'none';
-
         const modal = document.getElementById('qrModal');
         if (modal) modal.classList.add('active');
       },
@@ -1283,7 +1501,7 @@
         
         try {
           if (typeof Html5Qrcode === 'undefined') {
-            alert('QR Camera Scanner library loading. Please try again in 2 seconds.');
+            alert('QR Camera Scanner loading. Please try again in 2 seconds.');
             this.closeScannerModal();
             return;
           }
@@ -1337,7 +1555,7 @@
         if (!this.currentRoom) return;
         const baseUrl = this.getPublicBaseUrl();
         const joinUrl = baseUrl + '#pin=' + this.currentRoom;
-        const msg = '⚡ *Join my DualSync Real-Time Room*\n\n🔑 *Room PIN:* ' + this.currentRoom + '\n🔗 *1-Click Join Link:* ' + joinUrl + '\n\nOpen this link or scan the QR code to sync notes & checklist live!';
+        const msg = '⚡ *Join my DualSync Real-Time Room*\n\n🔑 *Room PIN:* ' + this.currentRoom + '\n🔗 *1-Click Join Link:* ${joinUrl}\n\nOpen this link or scan the QR code to sync live notes, checklist & files!';
         window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
       },
 
@@ -1359,6 +1577,8 @@
       const textPad = document.getElementById('syncTextPad');
       if (textPad) {
         textPad.addEventListener('input', () => DualSync.handleTextInput());
+        textPad.addEventListener('keyup', () => DualSync.handleTextInput());
+        textPad.addEventListener('paste', () => setTimeout(() => DualSync.handleTextInput(), 50));
       }
     });
   </script>

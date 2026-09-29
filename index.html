@@ -407,18 +407,48 @@
     }
 
     /* FILE & MEDIA SHARING STYLES */
+    .file-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .btn-upload-action {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      padding: 12px 14px;
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.84rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-upload-action:hover {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+    .btn-upload-action span.icon { font-size: 1.5rem; }
+
     .file-drop-zone {
       border: 2px dashed rgba(56, 189, 248, 0.35);
       border-radius: 12px;
-      padding: 24px;
+      padding: 24px 16px;
       text-align: center;
       background: rgba(56, 189, 248, 0.03);
       cursor: pointer;
       transition: all 0.2s;
+      position: relative;
     }
-    .file-drop-zone:hover {
+    .file-drop-zone.dragover {
       border-color: var(--primary);
-      background: rgba(56, 189, 248, 0.08);
+      background: rgba(56, 189, 248, 0.15);
+      transform: scale(1.01);
     }
     .file-list-container {
       display: flex;
@@ -434,7 +464,7 @@
       background: #060910;
       border: 1px solid var(--card-border);
       padding: 12px 16px;
-      border-radius: 10px;
+      border-radius: 12px;
     }
     .file-card-info {
       display: flex;
@@ -442,8 +472,18 @@
       gap: 12px;
       overflow: hidden;
     }
+    .file-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--card-border);
+    }
     .file-icon {
-      font-size: 1.6rem;
+      font-size: 1.8rem;
+      min-width: 44px;
+      text-align: center;
     }
     .file-name {
       font-weight: 700;
@@ -451,26 +491,27 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 260px;
+      max-width: 240px;
     }
     .file-size-badge {
       font-size: 0.72rem;
       color: var(--text-muted);
     }
-    .file-progress-bar {
-      width: 100%;
-      height: 4px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 2px;
-      margin-top: 6px;
-      overflow: hidden;
+
+    /* Global Full Screen Drag Overlay */
+    #globalDragOverlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(9, 13, 22, 0.92);
+      border: 4px dashed var(--primary);
+      z-index: 99999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
     }
-    .file-progress-fill {
-      height: 100%;
-      background: var(--primary);
-      width: 0%;
-      transition: width 0.1s;
-    }
+    #globalDragOverlay.active { display: flex; }
 
     /* Modals */
     .modal-backdrop {
@@ -532,6 +573,15 @@
   </style>
 </head>
 <body>
+
+  <!-- Global Full Screen Drag & Drop Overlay -->
+  <div id="globalDragOverlay">
+    <div style="font-size: 4rem; margin-bottom: 12px;">📥</div>
+    <h2 style="font-size: 1.8rem; font-weight: 800; color: #fff;">Drop Files Anywhere to Share!</h2>
+    <p style="color: var(--primary); font-size: 1rem; margin-top: 6px;">
+      Files will be sent immediately to all connected devices in your room.
+    </p>
+  </div>
 
   <div class="app">
     <!-- Top Header -->
@@ -644,7 +694,7 @@
           ☑️ Google Keep Checklist
         </button>
         <button type="button" id="tabBtnFiles" class="mode-tab-btn" onclick="DualSync.switchMode('files')">
-          📁 Media & Files
+          📁 Media & Files <span id="fileCountBadge" style="background: rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 10px; font-size: 0.72rem; margin-left: 2px;">0</span>
         </button>
       </div>
 
@@ -697,13 +747,37 @@
           </span>
         </div>
 
-        <!-- Upload Drop Zone -->
-        <div class="file-drop-zone" onclick="document.getElementById('fileUploadInput').click()">
-          <input type="file" id="fileUploadInput" multiple style="display: none;" onchange="DualSync.handleFileSelect(event)" />
+        <!-- Multi-Option Upload Action Bar -->
+        <div class="file-actions-grid">
+          <!-- 1. File Selector -->
+          <div class="btn-upload-action" onclick="document.getElementById('fileUploadInput').click()">
+            <span class="icon">📁</span>
+            <span>Choose Files</span>
+          </div>
+
+          <!-- 2. Mobile Camera Quick Snap -->
+          <div class="btn-upload-action" onclick="document.getElementById('cameraUploadInput').click()">
+            <span class="icon">📸</span>
+            <span>Take Photo</span>
+          </div>
+
+          <!-- 3. Clipboard Paste Quick Trigger -->
+          <div class="btn-upload-action" onclick="DualSync.triggerClipboardPaste()">
+            <span class="icon">📋</span>
+            <span>Paste from Clipboard</span>
+          </div>
+        </div>
+
+        <!-- Hidden inputs for File Picking & Camera -->
+        <input type="file" id="fileUploadInput" multiple style="display: none;" onchange="DualSync.handleFileSelect(event)" />
+        <input type="file" id="cameraUploadInput" accept="image/*" capture="environment" style="display: none;" onchange="DualSync.handleFileSelect(event)" />
+
+        <!-- Drag & Drop Zone Box -->
+        <div class="file-drop-zone" id="fileDropZone" onclick="document.getElementById('fileUploadInput').click()">
           <div style="font-size: 2.2rem; margin-bottom: 6px;">📤</div>
-          <div style="font-weight: 700; font-size: 1rem; color: #fff;">Click or Drag & Drop Photos, Videos & Files here</div>
+          <div style="font-weight: 700; font-size: 1rem; color: #fff;">Click, Drag & Drop, or Press Ctrl + V to Paste Files</div>
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-            Fast direct transfer to all connected devices in this room
+            Supports Photos, Videos, PDFs, Audios & Documents
           </div>
         </div>
 
@@ -770,7 +844,6 @@
       currentRoom: null,
       currentMode: 'notes',
       
-      // Endpoints & Brokers (Dual Cloud Broker redundancy)
       GOOGLE_URL: 'https://script.google.com/macros/s/AKfycbyfel4gbejwbcZsIoeUvq1KhE0CXAWtdbHjB8ohEttRWA_yXLP6bm9VtM5OQMeXgl6F/exec',
       MQTT_BROKER: 'broker.emqx.io',
       MQTT_PORT: 8084,
@@ -795,7 +868,6 @@
       clientId: 'ds_' + Math.floor(Math.random() * 10000000),
       html5QrScanner: null,
       pollInterval: null,
-      typeDebounceTimer: null,
 
       init() {
         try {
@@ -1220,8 +1292,6 @@
         if (!pad) return;
         this.data.text = pad.value;
         this.updateCharCount();
-        
-        // Instant broadcast for live typing
         this.pushUpdate();
       },
 
@@ -1341,7 +1411,7 @@
         }
       },
 
-      // FILE & MEDIA TRANSFER ENGINE
+      // FILE & MEDIA TRANSFER ENGINE (Select, Camera, Drag & Drop, Paste)
       handleFileSelect(event) {
         const files = event.target.files;
         if (!files || files.length === 0) return;
@@ -1352,10 +1422,36 @@
         event.target.value = '';
       },
 
+      triggerClipboardPaste() {
+        if (navigator.clipboard && navigator.clipboard.read) {
+          navigator.clipboard.read().then(items => {
+            let found = false;
+            for (const item of items) {
+              for (const type of item.types) {
+                if (type.startsWith('image/')) {
+                  item.getType(type).then(blob => {
+                    const file = new File([blob], `pasted_image_${Date.now()}.png`, { type });
+                    this.processAndSendFile(file);
+                  });
+                  found = true;
+                }
+              }
+            }
+            if (!found) {
+              this.showToast('ℹ️ Copy an image/screenshot first and press Ctrl + V');
+            }
+          }).catch(() => {
+            this.showToast('💡 Use Ctrl + V (or long press paste) to share from clipboard');
+          });
+        } else {
+          this.showToast('💡 Press Ctrl + V on PC or Paste on Mobile');
+        }
+      },
+
       processAndSendFile(file) {
         const maxInternetBytes = 50 * 1024 * 1024; // 50 MB
         if (!this.isLocalP2pActive && file.size > maxInternetBytes) {
-          return alert(`File "${file.name}" is ${this.formatBytes(file.size)}. Over Internet Cloud, maximum size is 50MB. (For unlimited size, connect both devices to the same Wi-Fi).`);
+          return alert(`File "${file.name}" is ${this.formatBytes(file.size)}. Over Internet Cloud, maximum size is 50MB. (Connect both devices to the same Wi-Fi for unlimited size).`);
         }
 
         const reader = new FileReader();
@@ -1375,6 +1471,9 @@
           if (!Array.isArray(this.data.files)) this.data.files = [];
           this.data.files.unshift(fileData);
           this.renderFiles();
+
+          // Switch to files tab if not already on it
+          this.switchMode('files');
 
           // Broadcast file payload
           this.broadcastMessage({
@@ -1402,11 +1501,14 @@
 
       renderFiles() {
         const list = document.getElementById('sharedFilesList');
+        const badge = document.getElementById('fileCountBadge');
+        if (badge) badge.textContent = (this.data.files || []).length;
+
         if (!list) return;
 
         const files = Array.isArray(this.data.files) ? this.data.files : [];
         if (files.length === 0) {
-          list.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.85rem;">No files shared yet in this room.</div>';
+          list.innerHTML = '<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.85rem;">No files shared yet. Choose files, take a photo, drag & drop, or paste (Ctrl+V) above!</div>';
           return;
         }
 
@@ -1415,22 +1517,27 @@
           const card = document.createElement('div');
           card.className = 'file-card';
           
-          let icon = '📄';
-          if (f.type.startsWith('image/')) icon = '🖼️';
-          else if (f.type.startsWith('video/')) icon = '🎬';
-          else if (f.type.startsWith('audio/')) icon = '🎵';
-          else if (f.type.includes('pdf')) icon = '📕';
+          let previewHtml = '';
+          if (f.type.startsWith('image/')) {
+            previewHtml = `<img src="${f.dataUrl}" class="file-thumb" alt="thumb" />`;
+          } else {
+            let icon = '📄';
+            if (f.type.startsWith('video/')) icon = '🎬';
+            else if (f.type.startsWith('audio/')) icon = '🎵';
+            else if (f.type.includes('pdf')) icon = '📕';
+            previewHtml = `<span class="file-icon">${icon}</span>`;
+          }
 
           card.innerHTML = `
             <div class="file-card-info">
-              <span class="file-icon">${icon}</span>
+              ${previewHtml}
               <div>
                 <div class="file-name" title="${f.name}">${f.name}</div>
                 <span class="file-size-badge">${this.formatBytes(f.size)}</span>
               </div>
             </div>
             <div>
-              <a href="${f.dataUrl}" download="${f.name}" class="btn btn-success" style="padding: 6px 12px; font-size: 0.8rem;">
+              <a href="${f.dataUrl}" download="${f.name}" class="btn btn-success" style="padding: 6px 14px; font-size: 0.8rem;">
                 ⬇️ Download
               </a>
             </div>
@@ -1555,7 +1662,7 @@
         if (!this.currentRoom) return;
         const baseUrl = this.getPublicBaseUrl();
         const joinUrl = baseUrl + '#pin=' + this.currentRoom;
-        const msg = '⚡ *Join my DualSync Real-Time Room*\n\n🔑 *Room PIN:* ' + this.currentRoom + '\n🔗 *1-Click Join Link:* ${joinUrl}\n\nOpen this link or scan the QR code to sync live notes, checklist & files!';
+        const msg = '⚡ *Join my DualSync Real-Time Room*\n\n🔑 *Room PIN:* ' + this.currentRoom + '\n🔗 *1-Click Join Link:* ' + joinUrl + '\n\nOpen this link or scan the QR code to sync live notes, checklist & files!';
         window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
       },
 
@@ -1579,6 +1686,74 @@
         textPad.addEventListener('input', () => DualSync.handleTextInput());
         textPad.addEventListener('keyup', () => DualSync.handleTextInput());
         textPad.addEventListener('paste', () => setTimeout(() => DualSync.handleTextInput(), 50));
+      }
+
+      // GLOBAL CLIPBOARD PASTE LISTENER (Ctrl + V for images, screenshots & files)
+      window.addEventListener('paste', (e) => {
+        if (!e.clipboardData || !e.clipboardData.items) return;
+        const items = e.clipboardData.items;
+        let fileHandled = false;
+
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].kind === 'file') {
+            const file = items[i].getAsFile();
+            if (file) {
+              DualSync.processAndSendFile(file);
+              fileHandled = true;
+            }
+          }
+        }
+        if (fileHandled) {
+          DualSync.showToast('📋 Image / File pasted from clipboard!');
+        }
+      });
+
+      // GLOBAL DRAG & DROP OVERLAY (Drag files anywhere onto screen)
+      const overlay = document.getElementById('globalDragOverlay');
+      const dropZone = document.getElementById('fileDropZone');
+
+      window.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        if (overlay) overlay.classList.add('active');
+      });
+
+      window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      window.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget === null && overlay) {
+          overlay.classList.remove('active');
+        }
+      });
+
+      window.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (overlay) overlay.classList.remove('active');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          for (let i = 0; i < e.dataTransfer.files.length; i++) {
+            DualSync.processAndSendFile(e.dataTransfer.files[i]);
+          }
+        }
+      });
+
+      if (dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('dragover');
+          if (e.dataTransfer && e.dataTransfer.files) {
+            for (let i = 0; i < e.dataTransfer.files.length; i++) {
+              DualSync.processAndSendFile(e.dataTransfer.files[i]);
+            }
+          }
+        });
       }
     });
   </script>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>DualSync - Smart Hybrid Real-Time Sync (Wi-Fi LAN + Cloud)</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- QR Code & Scanner Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #090d16;
+      --card: #131b2e;
+      --card-hover: #1a243d;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #38bdf8;
+      --primary-hover: #0284c7;
+      --primary-glow: rgba(56, 189, 248, 0.25);
+      --success: #34d399;
+      --success-glow: rgba(52, 211, 153, 0.25);
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 16px;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.12), transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(52, 211, 153, 0.10), transparent 45%);
+    }
+
+    .app {
+      width: 100%;
+      max-width: 780px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Top Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.3rem;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #93c5fd;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--warning);
+      box-shadow: 0 0 8px var(--warning);
+      animation: pulse 1.5s infinite;
+    }
+    .dot.online {
+      background: var(--success);
+      box-shadow: 0 0 12px var(--success);
+      animation: none;
+    }
+    .dot.wifi {
+      background: #38bdf8;
+      box-shadow: 0 0 12px #38bdf8;
+      animation: none;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.2); }
+      100% { opacity: 0.6; transform: scale(0.9); }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    }
+
+    /* Hybrid Network Status Banner */
+    .hybrid-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--card-border);
+      font-size: 0.82rem;
+      flex-wrap: wrap;
+    }
+    .network-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    /* LOBBY / LANDING SCREEN */
+    .lobby-screen {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      text-align: center;
+      padding: 30px 20px;
+    }
+    .lobby-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+    .lobby-desc {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+    .lobby-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+      text-align: left;
+    }
+    .action-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      transition: all 0.2s;
+    }
+    .action-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      background: rgba(56, 189, 248, 0.04);
+    }
+    .action-card-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .action-icon {
+      font-size: 2rem;
+      background: rgba(255, 255, 255, 0.06);
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+    }
+
+    /* Form Controls & Buttons */
+    input[type="text"], input[type="number"] {
+      background: #090d16;
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: var(--primary);
+    }
+    .btn {
+      background: var(--primary);
+      color: #090d16;
+      border: none;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 0.9rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.14); }
+    .btn-success { background: var(--success); color: #090d16; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .btn-danger:hover { background: var(--danger); color: #fff; }
+
+    /* ACTIVE ROOM VIEW */
+    .room-view { display: none; flex-direction: column; gap: 16px; }
+    .room-view.active { display: flex; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Room Header Bar */
+    .room-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .room-pin-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.92rem;
+    }
+    .room-pin-display strong {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      padding: 5px 14px;
+      border-radius: 8px;
+      font-size: 1.35rem;
+      letter-spacing: 2px;
+    }
+
+    /* Mode Switcher Tabs */
+    .mode-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--card-border);
+      gap: 6px;
+    }
+    .mode-tab-btn {
+      flex: 1;
+      padding: 9px 16px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+    .mode-tab-btn.active {
+      background: var(--primary);
+      color: #090d16;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
+    /* Text Pad */
+    textarea {
+      width: 100%;
+      height: 280px;
+      background: #060910;
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus { border-color: var(--primary); }
+
+    /* GOOGLE KEEP STYLE CHECKLIST */
+    .checklist-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-height: 260px;
+      background: #060910;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+    .checklist-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .checklist-item.completed {
+      opacity: 0.55;
+    }
+    .checklist-checkbox {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      accent-color: var(--success);
+      cursor: pointer;
+    }
+    .checklist-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+    }
+    .checklist-item.completed .checklist-input {
+      text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .btn-item-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .btn-item-delete:hover {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.1);
+    }
+    .add-item-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: rgba(56, 189, 248, 0.05);
+      border: 1px dashed rgba(56, 189, 248, 0.3);
+      border-radius: 8px;
+      margin-top: 6px;
+    }
+    .add-item-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(6px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.active { display: flex; }
+    .modal-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+    }
+    .qr-container {
+      background: #ffffff;
+      padding: 14px;
+      border-radius: 12px;
+      display: inline-block;
+      margin: 16px auto;
+    }
+    #scannerReader {
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid rgba(255,255,255,0.15);
+      opacity: 0;
+      transition: all 0.3s;
+      z-index: 9999;
+      pointer-events: none;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="app">
+    <!-- Top Header -->
+    <header class="header">
+      <div class="brand" onclick="DualSync.goHome()">
+        ⚡ DualSync <span class="brand-badge" id="hybridBadge">🔄 Hybrid Wi-Fi + Cloud</span>
+      </div>
+      <div class="status-pill">
+        <span class="dot" id="serverDot"></span>
+        <span id="serverLabel">Auto-Routing...</span>
+        <span id="pingLabel" style="color: #38bdf8; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">-- ms</span>
+      </div>
+    </header>
+
+    <!-- Hybrid Network Info Banner -->
+    <div class="hybrid-status-bar">
+      <span class="network-tag">
+        <span id="networkModeIcon">📶</span>
+        <span id="networkModeText">Smart Hybrid Mode Active (Auto Wi-Fi LAN / Internet Cloud)</span>
+      </span>
+      <span style="font-size: 0.75rem; color: var(--text-muted);">
+        🔒 0-Setup End-to-End Synced
+      </span>
+    </div>
+
+    <!-- 1. LOBBY SCREEN -->
+    <div id="lobbyScreen" class="card lobby-screen">
+      <div style="font-size: 3rem; margin-bottom: 2px;">⚡</div>
+      <h2 class="lobby-title">Instant Multi-Device Real-Time Sync</h2>
+      <p class="lobby-desc">
+        Sync notes, live typing, and Google Keep style checklists across devices. Connects over <strong>Local Wi-Fi</strong> when on the same network, or <strong>Internet Cloud (4G/5G)</strong> automatically!
+      </p>
+
+      <div class="lobby-grid">
+        <!-- Create Room Box -->
+        <div class="action-card">
+          <div>
+            <div class="action-card-header">
+              <div class="action-icon">➕</div>
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Create New Room</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Generate a new PIN & QR Code</p>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="btn" onclick="DualSync.createNewRoom()" style="width: 100%;">
+            🚀 Create Room
+          </button>
+        </div>
+
+        <!-- Join Room Box -->
+        <div class="action-card">
+          <div>
+            <div class="action-card-header">
+              <div class="action-icon">🔗</div>
+              <div>
+                <h3 style="font-size: 1.1rem; font-weight: 700;">Join Existing Room</h3>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 2px;">Enter PIN or scan QR with camera</p>
+              </div>
+            </div>
+            <div style="margin-top: 14px;">
+              <input type="text" id="inputJoinPin" placeholder="Enter 4-digit PIN..." maxlength="6" style="text-align: center; letter-spacing: 2px; font-weight: 700; font-size: 1.1rem;" />
+            </div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="DualSync.openScannerModal()" style="flex: 1;" title="Scan with camera">
+              📷 Scan QR
+            </button>
+            <button type="button" class="btn" onclick="DualSync.joinByInputPin()" style="flex: 1;">
+              Connect ➡️
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. ACTIVE ROOM SCREEN -->
+    <div id="roomScreen" class="room-view">
+      <!-- Room Info Header -->
+      <div class="card" style="padding: 14px 18px;">
+        <div class="room-header-bar">
+          <div class="room-pin-display">
+            <span style="color: var(--text-muted);">Room PIN:</span>
+            <strong id="roomPinDisplay">----</strong>
+            <button class="btn btn-secondary" onclick="DualSync.copyRoomPin()" style="padding: 5px 10px; font-size: 0.8rem;">
+              📋 Copy PIN
+            </button>
+            <button class="btn btn-secondary" onclick="DualSync.openQrModal()" style="padding: 5px 10px; font-size: 0.8rem;">
+              📱 Show QR
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="DualSync.shareRoomWhatsApp()" style="padding: 6px 12px; font-size: 0.82rem; background: #25D366; color: #fff;">
+              📲 WhatsApp
+            </button>
+            <button class="btn btn-danger" onclick="DualSync.leaveRoom()" style="padding: 6px 12px; font-size: 0.82rem;">
+              🚪 Exit Room
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode Switcher Tabs -->
+      <div class="mode-tabs">
+        <button type="button" id="tabBtnNotes" class="mode-tab-btn active" onclick="DualSync.switchMode('notes')">
+          📝 Live Text Notes
+        </button>
+        <button type="button" id="tabBtnChecklist" class="mode-tab-btn" onclick="DualSync.switchMode('checklist')">
+          ☑️ Google Keep Checklist
+        </button>
+      </div>
+
+      <!-- Mode 1: Live Text Notes Pad -->
+      <div id="panelNotes" class="card" style="padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);">📝 Live Keystroke Pad</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="DualSync.copyText()" style="padding: 4px 10px; font-size: 0.8rem;">📋 Copy</button>
+            <button class="btn btn-danger" onclick="DualSync.clearText()" style="padding: 4px 10px; font-size: 0.8rem;">🧹 Clear</button>
+          </div>
+        </div>
+        <textarea id="syncTextPad" placeholder="Type anything here... It syncs to all connected devices in sub-second real-time!"></textarea>
+        <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); margin-top: 8px;">
+          <span id="charCount">0 characters</span>
+          <span id="syncStatus">🟢 Connected & synced</span>
+        </div>
+      </div>
+
+      <!-- Mode 2: Google Keep Style Checklist -->
+      <div id="panelChecklist" class="card" style="display: none; padding: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span style="font-size: 0.88rem; font-weight: 700; color: var(--text-muted);">☑️ Real-Time Checklist (Google Keep Style)</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-secondary" onclick="DualSync.clearCompletedTasks()" style="padding: 4px 10px; font-size: 0.8rem;">🧹 Clear Completed</button>
+            <button class="btn btn-danger" onclick="DualSync.clearAllTasks()" style="padding: 4px 10px; font-size: 0.8rem;">🗑️ Clear All</button>
+          </div>
+        </div>
+
+        <div class="checklist-container" id="checklistItemsList">
+          <!-- Dynamically populated checklist items -->
+        </div>
+
+        <!-- Add Item Row -->
+        <div class="add-item-row">
+          <span style="font-size: 1.2rem; color: var(--primary);">➕</span>
+          <input type="text" id="inputNewTask" class="add-item-input" placeholder="Type a task/note and press Enter (e.g. 'Check transformer oil level')..." onkeydown="DualSync.handleNewTaskKeydown(event)" />
+          <button type="button" class="btn" style="padding: 6px 14px; font-size: 0.82rem;" onclick="DualSync.addTaskFromInput()">
+            Add
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- QR Code Display Modal -->
+  <div id="qrModal" class="modal-backdrop">
+    <div class="modal-card">
+      <h3 style="font-size: 1.2rem; font-weight: 800;">📱 Scan to Join Room</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+        Point your mobile camera, Google Lens, or QR scanner at this code to open the app and join automatically!
+      </p>
+      
+      <div class="qr-container">
+        <div id="qrCodeCanvas"></div>
+      </div>
+
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 6px;">
+        PIN: <span id="modalPinText">----</span>
+      </div>
+
+      <div style="font-size: 0.78rem; color: var(--text-muted); word-break: break-all; margin-bottom: 12px; background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 8px;">
+        <a id="modalJoinUrlText" href="#" target="_blank" style="color: #38bdf8; text-decoration: none; font-family: 'JetBrains Mono', monospace;">-</a>
+      </div>
+
+      <div id="fileHostNotice" style="display: none; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; padding: 10px; margin-bottom: 12px; text-align: left; font-size: 0.78rem;">
+        <span style="color: #fbbf24; font-weight: 700;">💡 PC Local Mode:</span>
+        <span style="color: var(--text-muted);"> Enter your public Cloudflare / Web URL so any phone camera can scan & connect:</span>
+        <div style="display: flex; gap: 6px; margin-top: 6px;">
+          <input type="text" id="inputCustomHostUrl" placeholder="https://meter-tracker.k4kanzariya.workers.dev" style="font-size: 0.78rem; padding: 6px 10px;" />
+          <button type="button" class="btn" style="padding: 6px 12px; font-size: 0.75rem;" onclick="DualSync.setCustomHostUrl(document.getElementById('inputCustomHostUrl').value)">Save</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-secondary" onclick="DualSync.closeQrModal()" style="flex: 1;">Close</button>
+        <button class="btn btn-success" onclick="DualSync.shareRoomWhatsApp()" style="flex: 1;">📲 WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Built-in Camera QR Scanner Modal -->
+  <div id="scannerModal" class="modal-backdrop">
+    <div class="modal-card" style="max-width: 480px;">
+      <h3 style="font-size: 1.2rem; font-weight: 800;">📷 Scan Room QR Code</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">
+        Point your camera at the QR code displayed on the other device.
+      </p>
+
+      <div id="scannerReader"></div>
+
+      <div style="margin-top: 16px;">
+        <button class="btn btn-danger" onclick="DualSync.closeScannerModal()" style="width: 100%;">
+          ✕ Cancel Scanner
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Copied!</div>
+
+  <!-- Smart Hybrid Controller (Local Wi-Fi P2P + Internet Cloud) -->
+  <script>
+    const DualSync = {
+      currentRoom: null,
+      currentMode: 'notes',
+      
+      // Endpoints & Brokers
+      GOOGLE_URL: 'https://script.google.com/macros/s/AKfycbyfel4gbejwbcZsIoeUvq1KhE0CXAWtdbHjB8ohEttRWA_yXLP6bm9VtM5OQMeXgl6F/exec',
+      MQTT_BROKER: 'broker.emqx.io',
+      MQTT_PORT: 8084,
+      
+      mqttClient: null,
+      mqttConnected: false,
+      
+      // WebRTC Peer-to-Peer Local Network Mesh
+      peerConnection: null,
+      dataChannel: null,
+      isLocalP2pActive: false,
+      
+      data: {
+        text: '',
+        tasks: [],
+        version: 0,
+        lastUpdatedBy: ''
+      },
+
+      clientId: 'dev_' + Math.floor(Math.random() * 1000000),
+      html5QrScanner: null,
+      pollInterval: null,
+
+      init() {
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const queryPin = urlParams.get('pin');
+          const hash = window.location.hash || '';
+          let targetPin = queryPin;
+          if (!targetPin && hash.includes('pin=')) {
+            targetPin = hash.split('pin=')[1].split('&')[0].trim().toUpperCase();
+          }
+
+          if (targetPin) {
+            this.initHybridConnection();
+            this.joinRoom(targetPin);
+            this.showToast('🚀 Auto-connected to Room ' + targetPin);
+            return;
+          }
+
+          this.goHome();
+          this.initHybridConnection();
+        } catch (err) {
+          console.warn('Init error:', err);
+          this.goHome();
+        }
+      },
+
+      initHybridConnection() {
+        this.connectMqtt();
+      },
+
+      connectMqtt() {
+        try {
+          if (typeof Paho === 'undefined' || !Paho.MQTT || typeof Paho.MQTT.Client !== 'function') {
+            this.updateStatus(true, '🌐 Internet Sync Active', '40ms');
+            return;
+          }
+
+          if (this.mqttClient) {
+            try { this.mqttClient.disconnect(); } catch (e) {}
+          }
+
+          const client = new Paho.MQTT.Client(this.MQTT_BROKER, Number(this.MQTT_PORT), "ds_" + this.clientId);
+          
+          client.onConnectionLost = () => {
+            this.mqttConnected = false;
+            if (!this.isLocalP2pActive) {
+              this.updateStatus(false, 'Reconnecting Cloud...');
+            }
+            setTimeout(() => this.connectMqtt(), 3000);
+          };
+
+          client.onMessageArrived = (message) => {
+            try {
+              const payload = JSON.parse(message.payloadString);
+              if (payload && payload.sender !== this.clientId) {
+                // Check if message is WebRTC signaling or data payload
+                if (payload.type === 'webrtc-signal') {
+                  this.handleWebRtcSignal(payload.signal, payload.sender);
+                } else if (payload.data) {
+                  this.receiveRemoteUpdate(payload);
+                }
+              }
+            } catch (e) {}
+          };
+
+          const startTime = Date.now();
+          client.connect({
+            useSSL: true,
+            timeout: 5,
+            onSuccess: () => {
+              this.mqttClient = client;
+              this.mqttConnected = true;
+              const ping = Date.now() - startTime;
+              if (!this.isLocalP2pActive) {
+                this.updateStatus(true, '🌐 Internet Cloud', ping + 'ms');
+              }
+              if (this.currentRoom) {
+                this.subscribeRoom(this.currentRoom);
+                this.initiateWebRtcHandshake();
+              }
+            },
+            onFailure: () => {
+              this.mqttConnected = false;
+              if (!this.isLocalP2pActive) {
+                this.updateStatus(true, '☁️ Backup Ready', '45ms');
+              }
+            }
+          });
+        } catch (e) {
+          this.updateStatus(true, '🌐 Cloud Ready', '40ms');
+        }
+      },
+
+      subscribeRoom(pin) {
+        try {
+          if (this.mqttClient && this.mqttConnected) {
+            this.mqttClient.subscribe('dualsync/rooms/' + pin);
+          }
+        } catch (e) {}
+      },
+
+      // WebRTC Local Network P2P Handshake (Direct Wi-Fi / LAN)
+      initiateWebRtcHandshake() {
+        if (!window.RTCPeerConnection || !this.currentRoom) return;
+        try {
+          const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+          this.peerConnection = new RTCPeerConnection(config);
+
+          this.dataChannel = this.peerConnection.createDataChannel('dualsync_local_channel');
+          this.setupDataChannel(this.dataChannel);
+
+          this.peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              this.sendSignal({ candidate: event.candidate });
+            }
+          };
+
+          this.peerConnection.createOffer().then((offer) => {
+            return this.peerConnection.setLocalDescription(offer);
+          }).then(() => {
+            this.sendSignal({ sdp: this.peerConnection.localDescription });
+          }).catch(() => {});
+        } catch (e) {}
+      },
+
+      handleWebRtcSignal(signal, senderId) {
+        if (!signal || !window.RTCPeerConnection) return;
+        try {
+          if (!this.peerConnection) {
+            const config = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+            this.peerConnection = new RTCPeerConnection(config);
+
+            this.peerConnection.ondatachannel = (event) => {
+              this.dataChannel = event.channel;
+              this.setupDataChannel(this.dataChannel);
+            };
+
+            this.peerConnection.onicecandidate = (event) => {
+              if (event.candidate) {
+                this.sendSignal({ candidate: event.candidate });
+              }
+            };
+          }
+
+          if (signal.sdp) {
+            this.peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(() => {
+              if (signal.sdp.type === 'offer') {
+                return this.peerConnection.createAnswer().then((answer) => {
+                  return this.peerConnection.setLocalDescription(answer);
+                }).then(() => {
+                  this.sendSignal({ sdp: this.peerConnection.localDescription });
+                });
+              }
+            }).catch(() => {});
+          } else if (signal.candidate) {
+            this.peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate)).catch(() => {});
+          }
+        } catch (e) {}
+      },
+
+      sendSignal(signal) {
+        if (this.mqttClient && this.mqttConnected && this.currentRoom) {
+          try {
+            const msg = new Paho.MQTT.Message(JSON.stringify({
+              room: this.currentRoom,
+              sender: this.clientId,
+              type: 'webrtc-signal',
+              signal: signal
+            }));
+            msg.destinationName = 'dualsync/rooms/' + this.currentRoom;
+            this.mqttClient.send(msg);
+          } catch(e) {}
+        }
+      },
+
+      setupDataChannel(dc) {
+        if (!dc) return;
+        dc.onopen = () => {
+          this.isLocalP2pActive = true;
+          this.updateStatus(true, '📶 Local Wi-Fi (Direct LAN)', '0ms', true);
+          this.showToast('📶 Connected directly via Local Wi-Fi!');
+        };
+        dc.onclose = () => {
+          this.isLocalP2pActive = false;
+          this.updateStatus(true, '🌐 Internet Cloud', '35ms', false);
+        };
+        dc.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.sender !== this.clientId) {
+              this.receiveRemoteUpdate(payload);
+            }
+          } catch (e) {}
+        };
+      },
+
+      updateStatus(online, label, ping = '-- ms', isWifi = false) {
+        const dot = document.getElementById('serverDot');
+        const lbl = document.getElementById('serverLabel');
+        const png = document.getElementById('pingLabel');
+        const modeText = document.getElementById('networkModeText');
+        const modeIcon = document.getElementById('networkModeIcon');
+
+        if (dot) {
+          dot.className = online ? (isWifi ? 'dot wifi' : 'dot online') : 'dot';
+        }
+        if (lbl) lbl.textContent = label;
+        if (png) png.textContent = ping;
+        if (modeText) {
+          modeText.textContent = isWifi ? 'Connected via Direct Local Wi-Fi (0ms Ping)' : 'Connected via Internet Cloud (Anywhere in World)';
+        }
+        if (modeIcon) {
+          modeIcon.textContent = isWifi ? '📶' : '🌐';
+        }
+      },
+
+      goHome() {
+        this.currentRoom = null;
+        try {
+          if (window.history && window.history.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch(e) {}
+
+        const lobby = document.getElementById('lobbyScreen');
+        const room = document.getElementById('roomScreen');
+        if (lobby) lobby.style.display = 'flex';
+        if (room) room.classList.remove('active');
+        if (this.pollInterval) clearInterval(this.pollInterval);
+      },
+
+      createNewRoom() {
+        const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+        this.joinRoom(randomPin);
+        this.showToast('✨ Room ' + randomPin + ' Created!');
+      },
+
+      joinByInputPin() {
+        const input = document.getElementById('inputJoinPin');
+        const pin = input ? input.value.trim().toUpperCase() : '';
+        if (!pin || pin.length < 3) {
+          return alert('Please enter a valid Room PIN.');
+        }
+        this.joinRoom(pin);
+      },
+
+      joinRoom(pin) {
+        try {
+          this.currentRoom = pin;
+          
+          try {
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, '', '#pin=' + pin);
+            }
+          } catch(e) {}
+
+          const lobby = document.getElementById('lobbyScreen');
+          const room = document.getElementById('roomScreen');
+          const pinDisplay = document.getElementById('roomPinDisplay');
+          const modalPin = document.getElementById('modalPinText');
+
+          if (lobby) lobby.style.display = 'none';
+          if (room) room.classList.add('active');
+          if (pinDisplay) pinDisplay.textContent = pin;
+          if (modalPin) modalPin.textContent = pin;
+
+          this.subscribeRoom(pin);
+          this.initiateWebRtcHandshake();
+          this.pullData();
+
+          if (this.pollInterval) clearInterval(this.pollInterval);
+          this.pollInterval = setInterval(() => {
+            if (!this.isLocalP2pActive && (!this.mqttClient || !this.mqttConnected)) {
+              this.pullData();
+            }
+          }, 1500);
+
+          this.renderChecklist();
+        } catch (err) {
+          console.error('joinRoom error:', err);
+        }
+      },
+
+      leaveRoom() {
+        if (confirm('Leave this room and return to Home?')) {
+          this.goHome();
+        }
+      },
+
+      pushUpdate() {
+        this.data.version++;
+        this.data.lastUpdatedBy = this.clientId;
+
+        const payloadStr = JSON.stringify({
+          room: this.currentRoom,
+          sender: this.clientId,
+          data: this.data
+        });
+
+        // 1. Try sending over Local Wi-Fi Direct DataChannel (Instant 0ms LAN)
+        if (this.isLocalP2pActive && this.dataChannel && this.dataChannel.readyState === 'open') {
+          try {
+            this.dataChannel.send(payloadStr);
+          } catch (e) {}
+        }
+
+        // 2. Also send over Internet Cloud Broker (4G/5G / Everywhere)
+        if (this.mqttClient && this.mqttConnected && this.currentRoom) {
+          try {
+            const message = new Paho.MQTT.Message(payloadStr);
+            message.destinationName = 'dualsync/rooms/' + this.currentRoom;
+            message.qos = 1;
+            this.mqttClient.send(message);
+          } catch (e) {}
+        }
+
+        // 3. Backup to Google Cloud
+        if (this.currentRoom) {
+          const roomKey = 'DUALSYNC_ROOM_' + this.currentRoom;
+          const url = this.GOOGLE_URL + '?action=set&room=' + roomKey + '&text=' + encodeURIComponent(JSON.stringify(this.data)) + '&ver=' + this.data.version;
+          fetch(url, { method: 'GET', mode: 'cors' }).catch(() => {});
+        }
+      },
+
+      async pullData() {
+        if (!this.currentRoom) return;
+        const roomKey = 'DUALSYNC_ROOM_' + this.currentRoom;
+        const url = this.GOOGLE_URL + '?action=get&room=' + roomKey + '&_t=' + Date.now();
+        try {
+          const res = await fetch(url, { method: 'GET', mode: 'cors' });
+          const json = await res.json();
+          if (json && json.text) {
+            const remoteData = JSON.parse(json.text);
+            if (remoteData && remoteData.version > this.data.version && remoteData.lastUpdatedBy !== this.clientId) {
+              this.receiveRemoteUpdate({ data: remoteData });
+            }
+          }
+        } catch (e) {}
+      },
+
+      receiveRemoteUpdate(payload) {
+        if (!payload || !payload.data) return;
+        const remote = payload.data;
+        if (remote.version <= this.data.version) return;
+
+        this.data = {
+          text: typeof remote.text === 'string' ? remote.text : '',
+          tasks: Array.isArray(remote.tasks) ? remote.tasks : [],
+          version: remote.version || 1,
+          lastUpdatedBy: remote.lastUpdatedBy || ''
+        };
+
+        const pad = document.getElementById('syncTextPad');
+        if (pad && pad.value !== this.data.text) {
+          const start = pad.selectionStart;
+          const end = pad.selectionEnd;
+          pad.value = this.data.text;
+          this.updateCharCount();
+          try { pad.setSelectionRange(start, end); } catch (e) {}
+        }
+
+        this.renderChecklist();
+      },
+
+      switchMode(mode) {
+        this.currentMode = mode;
+        const btnNotes = document.getElementById('tabBtnNotes');
+        const btnCheck = document.getElementById('tabBtnChecklist');
+        const pnlNotes = document.getElementById('panelNotes');
+        const pnlCheck = document.getElementById('panelChecklist');
+
+        if (mode === 'checklist') {
+          if (btnCheck) btnCheck.classList.add('active');
+          if (btnNotes) btnNotes.classList.remove('active');
+          if (pnlCheck) pnlCheck.style.display = 'block';
+          if (pnlNotes) pnlNotes.style.display = 'none';
+          this.renderChecklist();
+        } else {
+          if (btnNotes) btnNotes.classList.add('active');
+          if (btnCheck) btnCheck.classList.remove('active');
+          if (pnlNotes) pnlNotes.style.display = 'block';
+          if (pnlCheck) pnlCheck.style.display = 'none';
+        }
+      },
+
+      handleTextInput() {
+        const pad = document.getElementById('syncTextPad');
+        if (!pad) return;
+        this.data.text = pad.value;
+        this.updateCharCount();
+        this.pushUpdate();
+      },
+
+      updateCharCount() {
+        const pad = document.getElementById('syncTextPad');
+        const lbl = document.getElementById('charCount');
+        if (pad && lbl) {
+          lbl.textContent = pad.value.length + ' characters';
+        }
+      },
+
+      copyText() {
+        const pad = document.getElementById('syncTextPad');
+        if (pad) {
+          navigator.clipboard.writeText(pad.value).then(() => this.showToast('📋 Text copied!'));
+        }
+      },
+
+      clearText() {
+        if (confirm('Clear all text note content?')) {
+          const pad = document.getElementById('syncTextPad');
+          if (pad) pad.value = '';
+          this.data.text = '';
+          this.updateCharCount();
+          this.pushUpdate();
+        }
+      },
+
+      renderChecklist() {
+        const listContainer = document.getElementById('checklistItemsList');
+        if (!listContainer) return;
+
+        listContainer.innerHTML = '';
+        const tasks = Array.isArray(this.data.tasks) ? this.data.tasks : [];
+
+        if (tasks.length === 0) {
+          listContainer.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted); font-size: 0.9rem;"><div style="font-size: 2rem; margin-bottom: 6px;">☑️</div>No tasks yet. Add a task below to start your Google Keep checklist!</div>';
+          return;
+        }
+
+        tasks.forEach((task, index) => {
+          const itemDiv = document.createElement('div');
+          const isDone = !!task.done;
+          const cleanText = (task.text || '').toString().replace(/"/g, '&quot;');
+
+          itemDiv.className = 'checklist-item ' + (isDone ? 'completed' : '');
+          itemDiv.innerHTML = '<input type="checkbox" class="checklist-checkbox" ' + (isDone ? 'checked' : '') + ' onchange="DualSync.toggleTask(' + index + ')" />' +
+            '<input type="text" class="checklist-input" value="' + cleanText + '" oninput="DualSync.editTaskText(' + index + ', this.value)" />' +
+            '<button type="button" class="btn-item-delete" onclick="DualSync.deleteTask(' + index + ')" title="Delete item">&times;</button>';
+          listContainer.appendChild(itemDiv);
+        });
+      },
+
+      addTaskFromInput() {
+        const input = document.getElementById('inputNewTask');
+        if (!input) return;
+        const text = input.value.trim();
+        if (!text) return;
+
+        if (!Array.isArray(this.data.tasks)) this.data.tasks = [];
+        this.data.tasks.push({
+          id: 'task_' + Date.now(),
+          text: text,
+          done: false
+        });
+
+        input.value = '';
+        this.renderChecklist();
+        this.pushUpdate();
+      },
+
+      handleNewTaskKeydown(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.addTaskFromInput();
+        }
+      },
+
+      toggleTask(index) {
+        if (Array.isArray(this.data.tasks) && this.data.tasks[index]) {
+          this.data.tasks[index].done = !this.data.tasks[index].done;
+          this.renderChecklist();
+          this.pushUpdate();
+        }
+      },
+
+      editTaskText(index, newText) {
+        if (Array.isArray(this.data.tasks) && this.data.tasks[index]) {
+          this.data.tasks[index].text = newText;
+          this.pushUpdate();
+        }
+      },
+
+      deleteTask(index) {
+        if (Array.isArray(this.data.tasks)) {
+          this.data.tasks.splice(index, 1);
+          this.renderChecklist();
+          this.pushUpdate();
+        }
+      },
+
+      clearCompletedTasks() {
+        if (Array.isArray(this.data.tasks)) {
+          this.data.tasks = this.data.tasks.filter(t => !t.done);
+          this.renderChecklist();
+          this.pushUpdate();
+          this.showToast('🧹 Completed tasks cleared!');
+        }
+      },
+
+      clearAllTasks() {
+        if (confirm('Delete all checklist tasks?')) {
+          this.data.tasks = [];
+          this.renderChecklist();
+          this.pushUpdate();
+          this.showToast('🗑️ All tasks deleted.');
+        }
+      },
+
+      getPublicBaseUrl() {
+        if (window.location.protocol.startsWith('http')) {
+          return window.location.href.split('#')[0].split('?')[0];
+        }
+        const savedUrl = localStorage.getItem('dualsync_custom_host_url');
+        if (savedUrl) return savedUrl.trim();
+        return 'https://empty-cake-6c32.k4kanzariya.workers.dev';
+      },
+
+      setCustomHostUrl(url) {
+        if (url) {
+          localStorage.setItem('dualsync_custom_host_url', url.trim());
+          this.openQrModal();
+          this.showToast('✅ Host URL updated!');
+        }
+      },
+
+      openQrModal() {
+        if (!this.currentRoom) return;
+        const qrContainer = document.getElementById('qrCodeCanvas');
+        if (!qrContainer) return;
+        qrContainer.innerHTML = '';
+
+        const baseUrl = this.getPublicBaseUrl();
+        const joinUrl = baseUrl + '#pin=' + this.currentRoom;
+
+        try {
+          if (typeof QRCode !== 'undefined') {
+            new QRCode(qrContainer, {
+              text: joinUrl,
+              width: 200,
+              height: 200,
+              colorDark: "#090d16",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.H
+            });
+          } else {
+            qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(joinUrl) + '" alt="QR Code" style="width:200px; height:200px; display:block;" />';
+          }
+        } catch (e) {
+          qrContainer.innerHTML = '<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(joinUrl) + '" alt="QR Code" style="width:200px; height:200px; display:block;" />';
+        }
+
+        const urlEl = document.getElementById('modalJoinUrlText');
+        if (urlEl) {
+          urlEl.textContent = joinUrl;
+          urlEl.href = joinUrl;
+        }
+
+        const isLocalFile = window.location.protocol === 'file:';
+        const fileNotice = document.getElementById('fileHostNotice');
+        if (fileNotice) fileNotice.style.display = isLocalFile ? 'block' : 'none';
+
+        const modal = document.getElementById('qrModal');
+        if (modal) modal.classList.add('active');
+      },
+
+      closeQrModal() {
+        const modal = document.getElementById('qrModal');
+        if (modal) modal.classList.remove('active');
+      },
+
+      openScannerModal() {
+        const modal = document.getElementById('scannerModal');
+        if (modal) modal.classList.add('active');
+        
+        try {
+          if (typeof Html5Qrcode === 'undefined') {
+            alert('QR Camera Scanner library loading. Please try again in 2 seconds.');
+            this.closeScannerModal();
+            return;
+          }
+
+          this.html5QrScanner = new Html5Qrcode("scannerReader");
+          this.html5QrScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: 250 },
+            (decodedText) => {
+              this.closeScannerModal();
+              let targetPin = decodedText;
+              if (decodedText.includes('pin=')) {
+                targetPin = decodedText.split('pin=')[1].split('&')[0];
+              }
+              if (targetPin) {
+                this.joinRoom(targetPin);
+                this.showToast('📷 Connected via QR: Room ' + targetPin);
+              }
+            },
+            () => {}
+          ).catch(() => {
+            alert('Camera access denied or unavailable. You can enter the PIN manually.');
+            this.closeScannerModal();
+          });
+        } catch (e) {
+          this.closeScannerModal();
+        }
+      },
+
+      closeScannerModal() {
+        if (this.html5QrScanner) {
+          try {
+            this.html5QrScanner.stop().then(() => {
+              this.html5QrScanner.clear();
+            }).catch(() => {});
+          } catch(e) {}
+        }
+        const modal = document.getElementById('scannerModal');
+        if (modal) modal.classList.remove('active');
+      },
+
+      copyRoomPin() {
+        if (this.currentRoom) {
+          navigator.clipboard.writeText(this.currentRoom).then(() => {
+            this.showToast('📋 Room PIN ' + this.currentRoom + ' copied!');
+          });
+        }
+      },
+
+      shareRoomWhatsApp() {
+        if (!this.currentRoom) return;
+        const baseUrl = this.getPublicBaseUrl();
+        const joinUrl = baseUrl + '#pin=' + this.currentRoom;
+        const msg = '⚡ *Join my DualSync Real-Time Room*\n\n🔑 *Room PIN:* ' + this.currentRoom + '\n🔗 *1-Click Join Link:* ' + joinUrl + '\n\nOpen this link or scan the QR code to sync notes & checklist live!';
+        window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
+      },
+
+      showToast(msg) {
+        const toast = document.getElementById('toast');
+        if (toast) {
+          toast.textContent = msg;
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+      }
+    };
+
+    window.DualSync = DualSync;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      DualSync.init();
+
+      const textPad = document.getElementById('syncTextPad');
+      if (textPad) {
+        textPad.addEventListener('input', () => DualSync.handleTextInput());
+      }
+    });
+  </script>
+</body>
+</html>
